@@ -1,10 +1,23 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
-import { statusColor } from '../api.js';
+import { STATUS_LABEL, statusColor } from '../constants.js';
+
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload;
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs shadow-card">
+      <div className="font-bold">{p.time} · {p.place}</div>
+      <div>Score: <b>{p.score} / 100</b> ({STATUS_LABEL[p.status] ?? p.status})</div>
+      <div>Confidence (prototype): <b>{Math.round(p.confidence * 100)}%</b></div>
+    </div>
+  );
+}
 
 export function ForecastChart({ segments }) {
   if (!segments) return null;
   const data = segments.filter((_, i) => i % 2 === 0).map((s) => ({
-    time: s.time, score: s.quality_score, status: s.status
+    time: s.time, score: s.quality_score, status: s.status,
+    place: s.place, confidence: s.confidence
   }));
   return (
     <div className="h-56">
@@ -19,7 +32,7 @@ export function ForecastChart({ segments }) {
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey="time" tick={{ fontSize: 10 }} interval={5} />
           <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-          <Tooltip formatter={(v) => [`${v} / 100`, 'Score']} />
+          <Tooltip content={<ChartTooltip />} />
           <ReferenceArea y1={0} y2={30} fill="#dc2626" fillOpacity={0.08} />
           <ReferenceArea y1={31} y2={55} fill="#d97706" fillOpacity={0.08} />
           <ReferenceArea y1={76} y2={100} fill="#16a34a" fillOpacity={0.07} />

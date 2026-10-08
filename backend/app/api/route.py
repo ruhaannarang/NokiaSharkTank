@@ -24,12 +24,12 @@ def simulate(req: SimulateRequest):
         segs = data["segments"]
         idx = max(0, min(len(segs) - 1, int(req.progress * (len(segs) - 1))))
         cur = segs[idx]
-        # next poor zone ahead
+        # next poor zone ahead — canonical haversine-accumulated distances
         next_poor = None
         for z in data["poor_zones"]:
             if z["end_segment"] >= idx:
+                km_ahead = round(max(0.0, z["distance_from_start_km"] - cur["distance_from_start_km"]), 1)
                 seg_ahead = max(0, z["start_segment"] - idx)
-                km_ahead = round(seg_ahead * (data["total_km"] / len(segs)), 1)
                 next_poor = {**z, "distance_km_ahead": km_ahead,
                              "segments_ahead": seg_ahead}
                 break
@@ -46,8 +46,9 @@ def simulate(req: SimulateRequest):
         else:
             phase = "recovered" if any(s["status"] == "poor" for s in segs[:idx]) else "good"
             msg = "Connectivity recovered." if phase == "recovered" else "Connectivity looks good."
+        avg_speed = data["total_km"] / max(1, data["total_min"]) * 60  # km/h
         recs = build_recommendations(cur["quality_score"], cur["status"],
-                                     minutes_to_poor=(next_poor["segments_ahead"] * data["total_min"] / len(segs)) if next_poor else None)
+                                     minutes_to_poor=(next_poor["distance_km_ahead"] / max(1, avg_speed) * 60) if next_poor else None)
         return {"index": idx, "current": cur, "next_poor": next_poor,
                 "phase": phase, "message": msg,
                 "place": cur["place"], "recommendations": recs,

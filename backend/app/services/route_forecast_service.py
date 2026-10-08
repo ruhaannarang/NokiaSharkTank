@@ -49,7 +49,13 @@ def haversine(a, b):
 
 
 def interpolate_route(n=60):
-    # piecewise linear through waypoints
+    """Piecewise-linear demo corridor through WAYPOINTS.
+
+    Returns (points, cumulative_km, total_km) where cumulative_km[i] is the
+    haversine-accumulated distance from the origin to point i. This is the
+    ONE canonical route geometry: every distance shown in the UI derives
+    from cumulative_km, never from uniform segment-count approximations.
+    """
     seg_lengths = []
     for i in range(len(WAYPOINTS) - 1):
         a = (WAYPOINTS[i][1], WAYPOINTS[i][2])
@@ -70,32 +76,44 @@ def interpolate_route(n=60):
                 pts.append((lat, lon, WAYPOINTS[i][0] if f < 0.5 else WAYPOINTS[i + 1][0]))
                 break
             acc += L
-    return pts, total
+    cumulative_km = [0.0]
+    for k in range(1, n):
+        cumulative_km.append(
+            cumulative_km[-1] + haversine((pts[k - 1][0], pts[k - 1][1]), (pts[k][0], pts[k][1]))
+        )
+    return pts, cumulative_km, cumulative_km[-1] if cumulative_km else 0.0
 
 
 def nearest_place(progress_places, idx):
     return progress_places[idx]
 
 
-def parse_departure(dep: str) -> datetime:
+def normalize_transport(mode: str) -> str:
+    """Unknown transport modes fall back to train (graceful, never 500)."""
+    m = (mode or "train").strip().lower()
+    return m if m in SPEEDS else "train"
+
+
+def parse_departure(dep: str):
+    """Returns (datetime, normalized HH:MM). Invalid input -> 18:00."""
     try:
-        h, m = map(int, dep.split(":"))
+        parts = dep.split(":")
+        h, m = int(parts[0]), int(parts[1])
+        if not (0 <= h <= 23 and 0 <= m <= 59):
+            raise ValueError
     except Exception:
         h, m = 18, 0
     now = datetime.now().replace(hour=h, minute=m, second=0, microsecond=0)
-    return now
+    return now, f"{h:02d}:{m:02d}"
 
 
 def forecast(origin="Bengaluru", destination="Chennai", departure_time="18:00",
              transport_mode="train", day_of_week=4, n_segments=60):
-    pts, total_km = interpolate_route(n_segments)
-    speed = SPEEDS.get(transport_mode, 68)
+    pts, cumulative_km, total_km = interpolate_route(n_segments)
+    transport_mode = normalize_transport(transport_mode)
+    speed = SPEEDS[transport_mode]
     total_min = int(round(total_km / speed * 60))
-    t0 = parse_departure(departure_time)
-    try:
-        dep_h = int(departure_time.split(":")[0])
-    except Exception:
-        dep_h = 18
+    t0, departure_time = parse_departure(departure_time)
 
     segments = []
     per_seg_min = total_min / n_segments
@@ -122,12 +140,15 @@ def forecast(origin="Bengaluru", destination="Chennai", departure_time="18:00",
             "event_density": round(min(1, max(0, event + math.sin(i * 0.9) * 0.05)), 3),
         }
         r = predict_single(payload)
+        from_start = round(cumulative_km[i], 2)
         segments.append({
             "segment": i,
             "latitude": payload["latitude"],
             "longitude": payload["longitude"],
             "place": place,
             "time": clock.strftime("%H:%M"),
+            "distance_from_start_km": from_start,
+            "distance_to_destination_km": round(total_km - from_start, 2),
             "speed": round(payload["speed"], 1),
             "tower_distance": payload["tower_distance"],
             "network_load": payload["network_load"],
@@ -151,10 +172,9 @@ def forecast(origin="Bengaluru", destination="Chennai", departure_time="18:00",
     # We'll report good = good+fair for simplicity in headline triple, keep fair_min too.
     headline_good = int(round(good_min + fair_min))
 
-    # Detect poor/unstable zones (contiguous poor or unstable runs, keep poor-priority)
+    # Detect poor zones (contiguous poor runs) with canonical distances
     poor_zones = []
     i = 0
-    km_per_seg = total_km / n_segments
     while i < n_segments:
         if segments[i]["status"] == "poor":
             j = i
@@ -171,6 +191,8 @@ def forecast(origin="Bengaluru", destination="Chennai", departure_time="18:00",
                 "start_segment": i, "end_segment": j,
                 "start_time": segments[i]["time"], "end_time": segments[j]["time"],
                 "duration_min": max(dur, 2),
+                "distance_from_start_km": segments[i]["distance_from_start_km"],
+                "distance_to_destination_km": segments[i]["distance_to_destination_km"],
                 "distance_km_ahead": None,
                 "cause": cause, "confidence": avg_conf,
             })
@@ -184,6 +206,8 @@ def forecast(origin="Bengaluru", destination="Chennai", departure_time="18:00",
             f"Poor connectivity predicted near {segments[z['start_segment']]['place']} "
             f"({z['start_time']}–{z['end_time']}, ~{z['duration_min']} min). Cause: {z['cause']}."
         )
+    if not poor_zones:
+        warnings.append("Your predicted route remains stable — no poor connectivity zone detected.")
     # next unstable warning
     for s in segments:
         if s["status"] == "unstable":
@@ -203,16 +227,22 @@ def forecast(origin="Bengaluru", destination="Chennai", departure_time="18:00",
 
     hrs = total_min // 60
     mins = total_min % 60
+    good_min = headline_good
+    unstable_min = int(round(unstable_min))
+    poor_min = int(round(poor_min))
+    fair_min = int(round(fair_min))
     return {
         "origin": origin, "destination": destination,
         "departure_time": departure_time, "transport_mode": transport_mode,
         "total_km": round(total_km, 1),
         "total_min": total_min,
         "total_label": f"{hrs}h {mins:02d}m",
-        "good_min": headline_good,
-        "unstable_min": int(round(unstable_min)),
-        "poor_min": int(round(poor_min)),
-        "fair_min": int(round(fair_min)),
+        "good_min": good_min,
+        "unstable_min": unstable_min,
+        "poor_min": poor_min,
+        "fair_min": fair_min,
+        "summary": {"good_min": good_min, "unstable_min": unstable_min,
+                    "poor_min": poor_min, "fair_min": fair_min},
         "route": [[s["latitude"], s["longitude"]] for s in segments],
         "segments": segments,
         "poor_zones": poor_zones,

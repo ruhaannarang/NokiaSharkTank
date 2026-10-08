@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { statusColor } from '../api.js';
+import { statusColor, STATUS_LABEL } from '../constants.js';
 
 function FitBounds({ route }) {
   const map = useMap();
@@ -80,7 +80,12 @@ export default function RouteMap({ forecast, simIndex }) {
         if (!s) return null;
         return (
           <Marker key={'pz' + i} position={[s.latitude, s.longitude]} icon={makeDot('#dc2626')}>
-            <Popup><b>Poor zone</b><br />{z.start_time}–{z.end_time} (~{z.duration_min} min)<br />{z.cause}</Popup>
+            <Popup>
+              <b>Poor connectivity zone</b><br />
+              {z.start_time}–{z.end_time} (~{z.duration_min} min)<br />
+              Cause: {z.cause}<br />
+              Confidence (prototype): {Math.round(z.confidence * 100)}%
+            </Popup>
           </Marker>
         );
       })}
@@ -89,6 +94,15 @@ export default function RouteMap({ forecast, simIndex }) {
           <Popup><b>You are here</b><br />{userSeg.place} · {userSeg.time}<br />{userSeg.status.toUpperCase()} ({userSeg.quality_score})</Popup>
         </Marker>
       )}
+      {/* legend: text + color so status is never color-only */}
+      <div className="absolute bottom-4 left-4 z-[500] bg-white/95 border border-slate-200 rounded-xl px-3 py-2 shadow-card text-[11px] space-y-1" role="img" aria-label="Map legend: green good, amber unstable, red poor">
+        {[['good', '🟢'], ['unstable', '🟡'], ['poor', '🔴']].map(([s, e]) => (
+          <div key={s} className="flex items-center gap-1.5">
+            <span aria-hidden>{e}</span><span className="font-semibold">{STATUS_LABEL[s]}</span>
+            <span className="inline-block w-6 h-1.5 rounded-full" style={{ background: statusColor(s) }} aria-hidden />
+          </div>
+        ))}
+      </div>
     </MapContainer>
   );
 }

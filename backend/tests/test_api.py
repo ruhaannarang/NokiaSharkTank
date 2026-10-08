@@ -69,3 +69,89 @@ def test_stationary():
 def test_recommendations_poor():
     recs = build_recommendations(25, "poor", minutes_to_poor=8)
     assert any("Download" in x["title"] for x in recs)
+
+
+def _forecast():
+    r = client.post("/api/route-forecast", json={
+        "origin": "Bengaluru", "destination": "Chennai",
+        "departure_time": "18:00", "transport_mode": "train"})
+    assert r.status_code == 200
+    return r.json()
+
+
+def test_canonical_distances_accumulate():
+    d = _forecast()
+    segs = d["segments"]
+    assert segs[0]["distance_from_start_km"] == 0.0
+    # distances strictly increase and sum to total
+    for a, b in zip(segs, segs[1:]):
+        assert b["distance_from_start_km"] > a["distance_from_start_km"]
+        assert abs((b["distance_from_start_km"] + b["distance_to_destination_km"]) - d["total_km"]) < 0.2
+    assert abs(segs[-1]["distance_from_start_km"] - d["total_km"]) < 2.0
+    assert segs[-1]["distance_to_destination_km"] == 0.0
+
+
+def test_summary_matches_parts():
+    d = _forecast()
+    s = d["summary"]
+    assert s["good_min"] == d["good_min"]
+    assert s["poor_min"] == d["poor_min"]
+    assert s["unstable_min"] == d["unstable_min"]
+
+
+def test_poor_zone_has_canonical_position():
+    d = _forecast()
+    assert len(d["poor_zones"]) >= 1
+    z = d["poor_zones"][0]
+    seg = d["segments"][z["start_segment"]]
+    assert z["distance_from_start_km"] == seg["distance_from_start_km"]
+    assert z["duration_min"] >= 2
+
+
+def test_simulate_distance_ahead_is_canonical():
+    d = _forecast()
+    z = d["poor_zones"][0]
+    # progress just before the poor zone
+    frac = max(0.0, (z["start_segment"] - 2) / (len(d["segments"]) - 1))
+    r = client.post("/api/simulate", json={
+        "origin": "Bengaluru", "destination": "Chennai",
+        "departure_time": "18:00", "transport_mode": "train", "progress": frac})
+    assert r.status_code == 200
+    body = r.json()
+    cur = body["current"]
+    expected = round(max(0.0, z["distance_from_start_km"] - cur["distance_from_start_km"]), 1)
+    assert body["next_poor"]["distance_km_ahead"] == expected
+
+
+def test_simulate_progression():
+    msgs = set()
+    for p in (0.0, 0.5, 1.0):
+        r = client.post("/api/simulate", json={
+            "origin": "Bengaluru", "destination": "Chennai",
+            "departure_time": "18:00", "transport_mode": "train", "progress": p})
+        assert r.status_code == 200
+        msgs.add(r.json()["phase"])
+    assert msgs  # phases vary across the journey
+
+
+def test_invalid_transport_and_time_normalized():
+    r = client.post("/api/route-forecast", json={
+        "origin": "Bengaluru", "destination": "Chennai",
+        "departure_time": "not-a-time", "transport_mode": "spaceship"})
+    assert r.status_code == 200
+    assert r.json()["transport_mode"] == "train"
+    assert r.json()["departure_time"] == "18:00"
+
+
+def test_model_info_matches_train_meta():
+    import json
+    import os
+    r = client.get("/api/model-info")
+    assert r.status_code == 200
+    body = r.json()
+    with open(os.path.join("ml", "model", "model_meta.json")) as f:
+        meta = json.load(f)
+    assert body["algorithm"] == meta["model"]
+    assert body["r2"] == meta["r2"]
+    assert body["mae"] == meta["mae"]
+    assert "hour_sin" in body["features"]

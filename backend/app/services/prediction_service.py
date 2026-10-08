@@ -79,10 +79,9 @@ def predict_single(p: dict) -> dict:
     used_ml = model is not None
     if used_ml:
         try:
-            import pandas as pd
+            import pandas as _pd
             from ..ml.feature_engineering import FEATURE_COLUMNS
             feats = build_features(p)
-            import pandas as _pd
             X = _pd.DataFrame([feats], columns=FEATURE_COLUMNS)
             score = float(np.clip(model.predict(X)[0], 2, 99))
         except Exception:

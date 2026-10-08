@@ -40,6 +40,9 @@ class RouteSegment(BaseModel):
     longitude: float
     place: str
     time: str
+    # Canonical route geometry (haversine-accumulated, backend is source of truth)
+    distance_from_start_km: float = 0.0
+    distance_to_destination_km: float = 0.0
     speed: float
     tower_distance: float
     network_load: float
@@ -60,6 +63,9 @@ class PoorZone(BaseModel):
     start_time: str
     end_time: str
     duration_min: int
+    # Absolute position on route (canonical); distance_km_ahead is filled by /simulate
+    distance_from_start_km: float = 0.0
+    distance_to_destination_km: float = 0.0
     distance_km_ahead: Optional[float] = None
     cause: str
     confidence: float
@@ -77,6 +83,7 @@ class RouteForecastResponse(BaseModel):
     unstable_min: int
     poor_min: int
     fair_min: int = 0
+    summary: dict = {}
     route: List[List[float]]  # [lat, lon]
     segments: List[RouteSegment]
     poor_zones: List[PoorZone]

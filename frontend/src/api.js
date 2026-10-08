@@ -1,4 +1,6 @@
-const BASE = '';
+// API layer. Base URL comes from VITE_API_BASE_URL (e.g. http://localhost:8000);
+// empty default keeps same-origin + Vite dev proxy working with `npm run dev`.
+const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 async function req(path, opts = {}) {
   const res = await fetch(BASE + path, {
@@ -11,6 +13,7 @@ async function req(path, opts = {}) {
 
 export const api = {
   health: () => req('/health'),
+  modelInfo: () => req('/api/model-info'),
   predict: (body) => req('/api/predict', { method: 'POST', body: JSON.stringify(body) }),
   routeForecast: (body) => req('/api/route-forecast', { method: 'POST', body: JSON.stringify(body) }),
   simulate: (body) => req('/api/simulate', { method: 'POST', body: JSON.stringify(body) }),
@@ -20,16 +23,5 @@ export const api = {
     req(`/api/current-connectivity?lat=${lat}&lon=${lon}&hour=${h}`)
 };
 
-export function statusColor(s) {
-  if (s === 'good') return '#16a34a';
-  if (s === 'fair') return '#0284c7';
-  if (s === 'unstable') return '#d97706';
-  return '#dc2626';
-}
-
-export function statusBg(s) {
-  if (s === 'good') return 'bg-green-50 border-green-200 text-green-800';
-  if (s === 'fair') return 'bg-sky-50 border-sky-200 text-sky-800';
-  if (s === 'unstable') return 'bg-amber-50 border-amber-200 text-amber-800';
-  return 'bg-red-50 border-red-200 text-red-800';
-}
+// Re-exported for backwards compatibility (single status implementation lives here).
+export { statusColor, statusBg, STATUS_LABEL, toStatus, THRESHOLDS } from './constants.js';

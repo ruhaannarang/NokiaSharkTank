@@ -47,7 +47,8 @@ Real operator data (crowdsourced measurements, KPIs, tower info, load, weather) 
 
 ## 4. Tech stack
 
-- Frontend: React 18, Vite 5, Tailwind 3, Leaflet + OpenStreetMap (no key needed), Recharts, lucide-react
+- Frontend: React 18, Vite 7, Tailwind 3, Leaflet + OpenStreetMap (no key needed), Recharts, lucide-react
+  (pinned to Vite 7 + Tailwind 3 — do not upgrade to Vite 8 / Tailwind 4 without migrating configs)
 - Backend: Python, FastAPI, Pydantic v2, Uvicorn, SQLAlchemy (SQLite file `connectiq.db`)
 - ML: pandas, NumPy, scikit-learn (`HistGradientBoostingRegressor`; XGBoost-compatible design, no paid APIs)
 
@@ -55,11 +56,15 @@ Real operator data (crowdsourced measurements, KPIs, tower info, load, weather) 
 
 ```
 C:\NokiaSharkTank\
-  frontend\  src\{App.jsx, main.jsx, api.js, index.css, components\{RouteMap.jsx, Charts.jsx}}
+  frontend\  src\{App.jsx, main.jsx, api.js, constants.js, fallback.js, index.css,
+             components\{Header, DemoScenarioBar, RoutePlanner, LoadingPrediction,
+             RouteMap, Charts, CurrentConnectivityCard, PredictionAlert,
+             ConnectivitySummary, JourneySimulation, SmartActions, WhyPrediction,
+             ContextPanel, StationaryForecast, InsightsPanel, AboutSection, Footer}.jsx}
   backend\app\{main.py, api\{prediction.py, route.py}, services\{prediction_service.py,
              route_forecast_service.py, recommendation_service.py, simulation_service.py},
              ml\{model_loader.py, feature_engineering.py}, models\{schemas.py, database.py}}
-  backend\tests\test_api.py
+  backend\tests\test_api.py (15 tests)
   ml\{generate_dataset.py, train_model.py, evaluate_model.py, model\{connectivity_model.pkl, model_meta.json}}
   data\{synthetic_measurements.csv (60k rows), routes.json}
   README.md
@@ -85,6 +90,7 @@ C:\NokiaSharkTank\
 | GET | `/api/stationary-forecast?lat&lon&start_hour` | 3h stationary points + alert window |
 | GET | `/api/current-connectivity?lat&lon&hour` | Current score + per-modality reliability + network |
 | POST/GET | `/api/recommendations` | Rule-based smart actions |
+| GET | `/api/model-info` | Model transparency: algorithm, MAE/RMSE/R² from train-time `model_meta.json`, features, thresholds |
 
 ## 8. Running locally
 
@@ -106,6 +112,9 @@ cd frontend
 npm install
 npm run dev     # http://localhost:5173  (proxies /api → :8000)
 # production: npm run build ; npm run preview
+# API base: same-origin by default; to point elsewhere set VITE_API_BASE_URL
+# (see frontend/.env.example). Backend is the source of truth for all
+# distances/durations; the frontend never invents route geometry.
 
 # 4) Tests
 python -m pytest backend/tests/test_api.py -v
@@ -117,14 +126,15 @@ No API keys required. Map tiles need internet (OSM); if offline, the app falls b
 
 1. `npm run dev` → open app → **Demo Mode** bar.
 2. Click **Scenario 1: Bengaluru → Chennai · 6 PM** (or set Origin Bengaluru, Destination Chennai, 18:00, Train → **Predict My Connectivity**).
-3. Watch loading checklist → map draws GREEN→YELLOW→**RED**→GREEN; totals ≈ GOOD 2h31m / UNSTABLE 2h01m / POOR 1h30m; alert: *"Poor connectivity predicted N km ahead, confidence ~89%, cause: high load + weak tower coverage."*
+3. Watch loading checklist → map draws GREEN→YELLOW→**RED**→GREEN; totals ≈ GOOD 2h29m / UNSTABLE 1h53m / POOR 1h35m over ~506.6 km in 5h58m; alert: *"Poor connectivity predicted N km ahead (canonical road distance), confidence ~89%, cause: high load + weak tower coverage."*
 4. Click **Start Journey Simulation** → marker moves; banner counts down (*17 km ahead → 1.4 km ahead → Entering poor zone → CURRENT: POOR −108 dBm / 184 ms / 2.1 Mbps → Connectivity recovered*).
 5. Check **Smart Actions** (download now / switch video to audio), **Why this prediction?**, **Context**, **Future forecast** chart, **Insights** tab (MAE/RMSE/R²).
 6. Try **Stationary** mode + Scenario 2/3.
 
 ## 10. Limitations
 
-- All measurements are **synthetic**; route geometry is a straight-line demo corridor (≈512 km via waypoints), not surveyed coverage.
+- All measurements are **synthetic**; route geometry is a predefined demo corridor (≈506.6 km haversine-accumulated via waypoints), not surveyed coverage.
+- The current prototype uses synthetic/simulated network measurements and a predefined Bengaluru–Chennai demonstration route. It is not a representation of live operator network coverage.
 - No real operator/tower/weather/event feeds; no auth, payments, or mobile-native actions (buttons are prototype interactions).
 - Confidence is a documented heuristic, not calibrated uncertainty.
 - OSM tiles require internet; everything else runs offline.
@@ -132,3 +142,25 @@ No API keys required. Map tiles need internet (OSM); if offline, the app falls b
 ## 11. Future improvements
 
 Plug in crowdsourced measurements + operator KPIs + tower DB + real load/weather/events; per-user calibration; LSTM/Transformer temporal model; calibrated uncertainty; PostgreSQL/Supabase; push alerts; offline-pack downloads actually triggering; PWA/mobile.
+
+## 12. Polish pass (audit → upgrade, existing architecture preserved)
+
+- **One canonical route geometry**: `interpolate_route` now returns haversine-accumulated
+  `cumulative_km`; every segment carries `distance_from_start_km` /
+  `distance_to_destination_km`, every poor zone its absolute route position.
+  `/simulate` distance-ahead is `zone_km − current_km` (verified: 67.9 km at 30%).
+  The old uniform `segments × total/n` approximation is gone.
+- **Frontend fallback unified**: `src/fallback.js` reuses `src/constants.js`
+  (same waypoints, haversine math, thresholds) — fallback total matches backend
+  exactly (506.6 km). Backend remains source of truth when reachable.
+- **Validation/edge cases**: unknown transport → `train`, malformed time → `18:00`
+  (echoed normalized); stable-route message when no poor zone; journey-complete
+  message at 100%; `summary` object added (top-level minute fields kept).
+- **Transparency**: new `GET /api/model-info` serves real train-time
+  `model_meta.json`; Insights tab reads it live; confidence labeled "prototype".
+- **Refactor**: 500-line `App.jsx` split into 16 components + `constants.js` /
+  `fallback.js`; status/threshold logic lives in exactly one module.
+- **UX**: map legend (text + color), poor-zone popups with confidence/cause/duration,
+  chart tooltips with place + confidence, Demo-Data badge, ARIA labels/roles.
+- **Tests**: 8 → 15 (canonical distances, summary, zone position, simulate km,
+  progression, normalization, model-info). All pass; `npm run build` clean.
