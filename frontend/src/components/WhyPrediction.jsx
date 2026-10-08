@@ -1,7 +1,8 @@
 export default function WhyPrediction({ segment }) {
   if (!segment) return (
-    <div className="bg-white rounded-2xl shadow-card border p-4 anim-in">
-      <h3 className="font-bold text-ink text-sm mb-2">WHY THIS PREDICTION?</h3>
+    <div className="bg-white rounded-2xl shadow-card border p-5 anim-in">
+      <div className="eyebrow">Explain</div>
+      <h3 className="section-title mb-2">Why this prediction?</h3>
       <div className="text-sm text-slate-400">No segment selected.</div>
     </div>
   );
@@ -12,8 +13,9 @@ export default function WhyPrediction({ segment }) {
     ['Movement density', segment.event_density * 100]
   ];
   return (
-    <div className="bg-white rounded-2xl shadow-card border p-4 anim-in">
-      <h3 className="font-bold text-ink text-sm mb-2">WHY THIS PREDICTION?</h3>
+    <div className="bg-white rounded-2xl shadow-card border p-5 anim-in">
+      <div className="eyebrow">Explain</div>
+      <h3 className="section-title mb-3">Why this prediction?</h3>
       {bars.map(([k, v]) => (
         <div key={k} className="mb-2">
           <div className="flex justify-between text-xs">

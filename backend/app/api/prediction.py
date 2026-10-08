@@ -59,9 +59,12 @@ def model_info():
 
 
 @router.get("/stationary-forecast")
-def stationary(lat: float = 13.0337, lon: float = 77.5649, start_hour: int = 18):
+def stationary(lat: float = 13.0337, lon: float = 77.5649, start_hour: int = 18,
+               hours: int = 24, step_min: int = 60):
     from ..services.simulation_service import stationary_forecast
-    pts = stationary_forecast(lat, lon, start_hour)
+    hours = max(1, min(int(hours), 24))
+    step_min = int(step_min) if int(step_min) in (15, 30, 60) else 60
+    pts = stationary_forecast(lat, lon, start_hour, hours=hours, step_min=step_min)
     # poor window
     poor = [p for p in pts if p["status"] == "poor"]
     alert = None

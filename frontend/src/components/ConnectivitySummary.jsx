@@ -11,14 +11,9 @@ export default function ConnectivitySummary({ forecast, simIndex, simulation }) 
     poor_min: forecast.poor_min, fair_min: forecast.fair_min ?? 0
   };
   return (
-    <div className="bg-white rounded-2xl shadow-card border p-4 anim-in">
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-        <h3 className="font-bold text-ink text-sm">
-          Personal Connectivity Route{' '}
-          <span className="text-slate-400 font-normal">
-            {forecast.origin} → {forecast.destination} · {forecast.total_label} · {forecast.total_km} km
-          </span>
-        </h3>
+    <div className="bg-white/[0.97] rounded-2xl shadow-card border border-white/40 p-4 anim-in">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-1">
+        <div className="text-sm font-extrabold text-ink">Journey breakdown</div>
         {forecast.fallback && (
           <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
             Demo data — backend unavailable

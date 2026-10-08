@@ -3,7 +3,11 @@
 @tailwind utilities;
 
 :root { color-scheme: light; }
-body { @apply bg-slate-100 text-slate-900 antialiased; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+body { @apply text-slate-900 antialiased; font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: #eef2f7;
+  background-image: radial-gradient(1100px 480px at 85% -10%, rgba(29,92,171,.10), transparent 60%),
+                    radial-gradient(900px 420px at -10% 0%, rgba(56,242,138,.08), transparent 55%);
+}
 .leaflet-container { border-radius: 1rem; z-index: 0; }
 
 @keyframes drawIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: none;} }
@@ -14,6 +18,78 @@ body { @apply bg-slate-100 text-slate-900 antialiased; font-family: Inter, ui-sa
 .timeline-seg { transition: all .4s ease; }
 .num-pop { transition: all .3s ease; }
 
+/* ---------- shared dashboard polish ---------- */
+.eyebrow { @apply text-[11px] font-bold tracking-[0.18em] text-slate-400 uppercase; }
+.card { @apply bg-white rounded-2xl border border-slate-200/80 shadow-card; }
+.section-title { @apply font-extrabold text-ink text-base flex items-center gap-2; }
+.section-title::before { content: ''; width: 8px; height: 18px; border-radius: 4px; background: linear-gradient(180deg,#38f28a,#1d5cab); flex-shrink: 0; }
+
+/* ---------- landing page motion ---------- */
+@keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+.anim-float { animation: floatY 7s ease-in-out infinite; }
+.anim-float-slow { animation: floatY 11s ease-in-out infinite; }
+@keyframes driftX { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(40px,-20px) scale(1.08); } }
+.anim-blob { animation: driftX 14s ease-in-out infinite; filter: blur(70px); }
+@keyframes dashFlow { to { stroke-dashoffset: -240; } }
+.route-flow { stroke-dasharray: 10 14; animation: dashFlow 6s linear infinite; }
+@keyframes pingRing { 0% { transform: scale(.55); opacity: .9; } 100% { transform: scale(1.9); opacity: 0; } }
+.ping-ring { animation: pingRing 2.2s ease-out infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes marqueeX { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.anim-marquee { animation: marqueeX 30s linear infinite; }
+@keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.anim-bar { transform-origin: left; animation: barGrow 1.4s cubic-bezier(.22,1,.36,1) both; }
+@keyframes gradientPan { 0%,100% { background-position: 0% 40%; } 50% { background-position: 100% 60%; } }
+.anim-gradient-text {
+  background: linear-gradient(100deg, #38f28a, #7dd3fc, #38f28a);
+  background-size: 220% auto;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: gradientPan 7s ease infinite;
+}
+/* scroll reveal */
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s ease, transform .7s cubic-bezier(.22,1,.36,1); }
+.reveal.is-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .anim-float, .anim-float-slow, .anim-blob, .anim-marquee, .route-flow, .ping-ring, .anim-bar { animation: none !important; transition: none !important; }
+  .reveal { opacity: 1; transform: none; }
+}
+
 /* custom scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+
+/* ---------- living map ---------- */
+@keyframes leafletFlow { to { stroke-dashoffset: -28; } }
+.flow-line { stroke-dasharray: 3 11; animation: leafletFlow 1.1s linear infinite; }
+/* leaflet dark-theme control polish */
+.leaflet-bar a { background: #0a2540 !important; color: #e2e8f0 !important; border-color: rgba(255,255,255,.15) !important; }
+.leaflet-control-attribution { background: rgba(10,37,64,.7) !important; color: #94a3b8 !important; font-size: 10px !important; }
+.leaflet-control-attribution a { color: #7dd3fc !important; }
+.leaflet-popup-content-wrapper { border-radius: 14px !important; }
+/* pulsing poor-zone marker */
+.pz-wrap { position: relative; width: 44px; height: 44px; }
+.pz-dot { position: absolute; inset: 13px; border-radius: 50%; background: #dc2626; border: 3px solid #fff; box-shadow: 0 0 14px #dc2626; }
+.pz-ping { position: absolute; inset: 6px; border-radius: 50%; border: 2px solid #f87171; animation: markerPing 2s ease-out infinite; }
+.pz-delay { animation-delay: 1s; }
+@keyframes markerPing { 0% { transform: scale(.5); opacity: 1; } 100% { transform: scale(1.25); opacity: 0; } }
+/* traveler marker */
+.user-wrap { position: relative; width: 48px; height: 48px; }
+.user-dot { position: absolute; inset: 13px; border-radius: 50%; background: #0a2540; border: 3px solid #38f28a; box-shadow: 0 0 16px rgba(56,242,138,.8); }
+.user-ring { position: absolute; inset: 4px; border-radius: 50%; border: 2px solid rgba(56,242,138,.7); animation: markerPing 2.4s ease-out infinite; }
+.user-delay { animation-delay: 1.2s; }
+/* score gauge */
+.gauge-arc { transition: stroke-dashoffset .8s cubic-bezier(.22,1,.36,1), stroke .4s ease; }
+/* transport slider */
+.sim-range { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+.sim-range::-webkit-slider-runnable-track { height: 8px; border-radius: 999px;
+  background: linear-gradient(90deg, #38f28a var(--fill, 0%), rgba(255,255,255,.16) var(--fill, 0%)); }
+.sim-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -6px;
+  border-radius: 50%; background: #38f28a; border: 3px solid #071c33;
+  box-shadow: 0 0 0 3px rgba(56,242,138,.35), 0 0 16px rgba(56,242,138,.8); }
+.sim-range::-moz-range-track { height: 8px; border-radius: 999px; background: rgba(255,255,255,.16); }
+.sim-range::-moz-range-progress { height: 8px; border-radius: 999px; background: #38f28a; }
+.sim-range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #38f28a;
+  border: 3px solid #071c33; box-shadow: 0 0 0 3px rgba(56,242,138,.35), 0 0 16px rgba(56,242,138,.8); }
+@media (prefers-reduced-motion: reduce) {
+  .flow-line, .pz-ping, .user-ring { animation: none !important; }
+  .gauge-arc { transition: none; }
+}

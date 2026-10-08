@@ -9,8 +9,9 @@ export default function ContextPanel({ segment, reliability }) {
     ['👥 Event/crowding', segment.event_density > 0.5 ? 'High' : segment.event_density > 0.3 ? 'Medium' : 'Low']
   ] : [];
   return (
-    <div className="bg-white rounded-2xl shadow-card border p-4 anim-in">
-      <h3 className="font-bold text-ink text-sm mb-2">CONTEXT</h3>
+    <div className="bg-white rounded-2xl shadow-card border p-5 anim-in h-full">
+      <div className="eyebrow">Signals</div>
+      <h3 className="section-title mb-3">Context</h3>
       {segment ? (
         <div className="text-sm space-y-1.5">
           {rows.map(([k, v]) => (

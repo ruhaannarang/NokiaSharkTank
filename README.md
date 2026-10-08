@@ -111,6 +111,8 @@ python -m uvicorn backend.app.main:app --port 8000
 cd frontend
 npm install
 npm run dev     # http://localhost:5173  (proxies /api → :8000)
+# Opens on the landing home page → "Run the hero demo" jumps straight into
+# Scenario 1 (Bengaluru → Chennai, 6 PM). Logo / Home returns to landing.
 # production: npm run build ; npm run preview
 # API base: same-origin by default; to point elsewhere set VITE_API_BASE_URL
 # (see frontend/.env.example). Backend is the source of truth for all

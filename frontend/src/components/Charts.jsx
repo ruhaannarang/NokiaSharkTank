@@ -20,7 +20,7 @@ export function ForecastChart({ segments }) {
     place: s.place, confidence: s.confidence
   }));
   return (
-    <div className="h-56">
+    <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
           <defs>

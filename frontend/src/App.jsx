@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import RouteMap from './components/RouteMap.jsx';
 import Header from './components/Header.jsx';
 import DemoScenarioBar from './components/DemoScenarioBar.jsx';
-import RoutePlanner from './components/RoutePlanner.jsx';
+import DashNav from './components/DashNav.jsx';
 import LoadingPrediction, { LOADING_STEPS } from './components/LoadingPrediction.jsx';
 import PredictionAlert from './components/PredictionAlert.jsx';
 import CurrentConnectivityCard from './components/CurrentConnectivityCard.jsx';
@@ -14,6 +14,7 @@ import ContextPanel from './components/ContextPanel.jsx';
 import StationaryForecast from './components/StationaryForecast.jsx';
 import InsightsPanel from './components/InsightsPanel.jsx';
 import AboutSection from './components/AboutSection.jsx';
+import LandingPage from './components/landing/LandingPage.jsx';
 import Footer from './components/Footer.jsx';
 import { ForecastChart } from './components/Charts.jsx';
 import { api } from './api.js';
@@ -21,7 +22,9 @@ import { round1 } from './constants.js';
 import { fallbackForecast } from './fallback.js';
 
 export default function App() {
+  const [view, setView] = useState('home'); // home | app
   const [tab, setTab] = useState('dashboard');
+  const [panel, setPanel] = useState('map'); // map | trends | actions | stationary
   const [mode, setMode] = useState('moving'); // moving | stationary
   const [origin, setOrigin] = useState('Bengaluru');
   const [destination, setDestination] = useState('Chennai');
@@ -149,10 +152,12 @@ export default function App() {
     if (n === 1) {
       setMode('moving'); setOrigin('Bengaluru'); setDestination('Chennai');
       setDeparture('18:00'); setTransport('train');
+      setPanel('map');
       runForecast({ origin: 'Bengaluru', destination: 'Chennai', departure_time: '18:00', transport_mode: 'train' });
     }
     if (n === 2) {
       setMode('stationary'); setDeparture('18:00');
+      setPanel('stationary');
       runForecast({ departure_time: '18:00' });
     }
     if (n === 3) {
@@ -160,13 +165,20 @@ export default function App() {
       // judge immediately sees the marker drive toward the poor zone.
       setMode('moving'); setOrigin('Bengaluru'); setDestination('Chennai');
       setDeparture('19:00'); setTransport('train');
+      setPanel('map');
       runForecast({ origin: 'Bengaluru', destination: 'Chennai', departure_time: '19:00', transport_mode: 'train', autoplay: true });
     }
   }
 
-  function handleManualPredict() {
-    setScenario(null);
-    runForecast();
+  function handleLaunch() {
+    setView('app');
+    setTab('dashboard');
+    setPanel('map');
+    // Explicit params: safe to fire immediately, independent of view state.
+    setScenario(1);
+    setMode('moving'); setOrigin('Bengaluru'); setDestination('Chennai');
+    setDeparture('18:00'); setTransport('train');
+    runForecast({ origin: 'Bengaluru', destination: 'Chennai', departure_time: '18:00', transport_mode: 'train' });
   }
 
   const smartActions = useMemo(() => {
@@ -181,53 +193,117 @@ export default function App() {
     return acts.slice(0, 4);
   }, [forecast, nextPoor, scenario]);
 
+  // Landing branch — must come AFTER every hook (Rules of Hooks: same hook
+  // count on every render regardless of view).
+  if (view === 'home') {
+    return <LandingPage onLaunch={handleLaunch} />;
+  }
+
   return (
     <div className="min-h-screen">
-      <Header tab={tab} setTab={setTab} backendUp={backendUp} />
+      <Header tab={tab} setTab={setTab} backendUp={backendUp} onHome={() => setView('home')} />
 
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        <DemoScenarioBar loadScenario={loadScenario} />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <DemoScenarioBar loadScenario={loadScenario} active={scenario} />
 
-        {tab === 'about' && <AboutSection />}
+        {tab === 'about' && <AboutSection onLaunchDemo={() => { setTab('dashboard'); loadScenario(1); }} />}
 
         {tab === 'insights' && <InsightsPanel />}
 
         {tab === 'dashboard' && (
           <>
-            <RoutePlanner
-              mode={mode} setMode={setMode} origin={origin} setOrigin={setOrigin}
-              destination={destination} setDestination={setDestination}
-              departure={departure} setDeparture={setDeparture}
-              transport={transport} setTransport={setTransport}
-              loading={loading} runForecast={handleManualPredict}
-            />
             {loading && <LoadingPrediction loadStep={loadStep} />}
 
-            {/* Scenario 2 foregrounds stationary content immediately after the planner,
-                instead of burying it below the moving-route map. */}
-            {mode === 'stationary' && <StationaryForecast stationary={stationary} />}
+            <DashNav
+              panel={panel} setPanel={setPanel}
+              hasForecast={!!forecast} isStationary={mode === 'stationary'}
+              poorCount={forecast?.poor_zones?.length ?? 0}
+            />
 
-            {/* MAP + SIDE */}
-            <section className="grid lg:grid-cols-3 gap-5">
-              <div className="lg:col-span-2 space-y-4">
-                <div className="anim-in"><RouteMap forecast={forecast} simIndex={simIndex} /></div>
-                {forecast && (
-                  <ConnectivitySummary
-                    forecast={forecast} simIndex={simIndex}
-                    simulation={
-                      <JourneySimulation
-                        playing={playing} setPlaying={setPlaying}
-                        progress={progress} setProgress={setProgress}
-                        simSpeed={simSpeed} setSimSpeed={setSimSpeed}
-                        current={curSeg} simMsg={simMsg} isPoor={curSeg?.status === 'poor'}
-                      />
-                    }
-                  />
+            {/* WORKSPACE: one panel open at a time + persistent warning rail. No scrolling needed. */}
+            <div className="grid lg:grid-cols-3 gap-5 items-start">
+              <div className="lg:col-span-2 min-w-0">
+                {panel === 'map' && (
+                  <section aria-label="Live connectivity map and journey" className="anim-in" key="p-map">
+                    <div className="rounded-3xl p-3 md:p-4 border border-[#1d3a5f] shadow-[0_24px_70px_-20px_rgba(10,37,64,.65)]"
+                      style={{ background: 'linear-gradient(165deg,#071c33,#0a2540 55%,#123c6b)' }}>
+                      <div className="px-2 pt-1 pb-3 flex flex-wrap items-end gap-x-3 gap-y-1">
+                        <div>
+                          <div className="text-[11px] font-bold tracking-[0.18em] text-slate-400 uppercase">Live map + journey</div>
+                          <h2 className="font-extrabold text-white text-lg flex items-center gap-2">
+                            <span className="inline-block w-2 h-[18px] rounded" style={{ background: 'linear-gradient(180deg,#38f28a,#1d5cab)' }} aria-hidden />
+                            Where will it degrade — and when?
+                          </h2>
+                        </div>
+                        {forecast && (
+                          <div className="ml-auto text-xs text-slate-300">
+                            <b className="text-white">{forecast.origin} → {forecast.destination}</b> · {forecast.total_label} · {forecast.total_km} km
+                            {forecast.fallback && <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-300/40 text-amber-200 text-[10px] font-bold">demo data</span>}
+                          </div>
+                        )}
+                      </div>
+                      <RouteMap forecast={forecast} simIndex={simIndex} />
+                      {forecast && (
+                        <div className="mt-4">
+                          <ConnectivitySummary
+                            forecast={forecast} simIndex={simIndex}
+                            simulation={
+                              <JourneySimulation
+                                playing={playing} setPlaying={setPlaying}
+                                progress={progress} setProgress={setProgress}
+                                simSpeed={simSpeed} setSimSpeed={setSimSpeed}
+                                current={curSeg} simMsg={simMsg} isPoor={curSeg?.status === 'poor'}
+                                zones={forecast.poor_zones ?? []} totalKm={forecast.total_km || 1}
+                              />
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {panel === 'trends' && forecast && (
+                  <section aria-label="Connectivity over time" className="anim-in" key="p-trends">
+                    <div className="mb-3">
+                      <div className="eyebrow">Score over time</div>
+                      <h2 className="section-title">Your next 3 hours, at a glance</h2>
+                    </div>
+                    <div className="card p-5">
+                      <ForecastChart segments={forecast.segments} />
+                    </div>
+                  </section>
+                )}
+
+                {panel === 'actions' && forecast && (
+                  <section aria-label="Actions and explanation" className="anim-in" key="p-actions">
+                    <div className="mb-3">
+                      <div className="eyebrow">Act before it happens</div>
+                      <h2 className="section-title">What should you do about it?</h2>
+                    </div>
+                    <div className="space-y-5">
+                      <SmartActions actions={smartActions} />
+                      <div className="grid md:grid-cols-2 gap-5">
+                        <WhyPrediction segment={curSeg} />
+                        <ContextPanel segment={curSeg} reliability={current?.reliability} />
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {panel === 'stationary' && (
+                  <section aria-label="Stationary forecast" className="anim-in" key="p-stationary">
+                    <div className="mb-3">
+                      <div className="eyebrow">Staying put</div>
+                      <h2 className="section-title">What will my connectivity be like here?</h2>
+                    </div>
+                    <StationaryForecast stationary={stationary} />
+                  </section>
                 )}
               </div>
 
-              {/* RIGHT COLUMN */}
-              <div className="space-y-4">
+              {/* PERSISTENT RAIL — warning + now, always in view */}
+              <div className="space-y-5 lg:sticky lg:top-[76px]">
                 {forecast && (
                   <PredictionAlert
                     nextPoor={nextPoor}
@@ -235,23 +311,8 @@ export default function App() {
                   />
                 )}
                 <CurrentConnectivityCard segment={curSeg} />
-                {forecast && (
-                  <div className="bg-white rounded-2xl shadow-card border p-4 anim-in">
-                    <div className="text-xs font-bold text-slate-400 tracking-wider mb-2">FUTURE FORECAST · NEXT 3 HOURS</div>
-                    <ForecastChart segments={forecast.segments} />
-                  </div>
-                )}
               </div>
-            </section>
-
-            {/* LOWER GRID */}
-            {forecast && (
-              <section className="grid lg:grid-cols-3 gap-5">
-                <SmartActions actions={smartActions} />
-                <WhyPrediction segment={curSeg} />
-                <ContextPanel segment={curSeg} reliability={current?.reliability} />
-              </section>
-            )}
+            </div>
           </>
         )}
       </main>

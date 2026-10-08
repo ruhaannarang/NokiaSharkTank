@@ -10,9 +10,10 @@ function iconFor(icon) {
 
 export default function SmartActions({ actions }) {
   return (
-    <div className="bg-white rounded-2xl shadow-card border p-4 anim-in">
-      <h3 className="font-bold text-ink text-sm mb-2 flex items-center gap-1">
-        <Activity className="w-4 h-4" aria-hidden /> SMART ACTIONS
+    <div className="bg-white rounded-2xl shadow-card border p-5 anim-in h-full">
+      <div className="eyebrow">Recommend</div>
+      <h3 className="section-title mb-3 flex items-center gap-1.5">
+        <Activity className="w-4 h-4" aria-hidden /> Smart actions
       </h3>
       <div className="space-y-2">
         {actions.map((r, i) => (
