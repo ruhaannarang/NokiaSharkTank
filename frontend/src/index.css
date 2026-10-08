@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+body { @apply bg-slate-100 text-slate-900 antialiased; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.leaflet-container { border-radius: 1rem; z-index: 0; }
+
+@keyframes drawIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: none;} }
+.anim-in { animation: drawIn .5s ease both; }
+@keyframes pulseAlert { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,.35);} 50% { box-shadow: 0 0 0 10px rgba(220,38,38,0);} }
+.alert-pulse { animation: pulseAlert 2s infinite; }
+@keyframes shimmer { 0% { background-position: -400px 0;} 100% { background-position: 400px 0;} }
+.timeline-seg { transition: all .4s ease; }
+.num-pop { transition: all .3s ease; }
+
+/* custom scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }

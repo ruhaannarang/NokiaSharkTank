@@ -1,0 +1,22 @@
+{
+  "features": [
+    "latitude",
+    "longitude",
+    "hour",
+    "day_of_week",
+    "speed",
+    "tower_distance",
+    "network_load",
+    "historical_quality",
+    "weather_factor",
+    "event_density",
+    "hour_sin",
+    "hour_cos",
+    "peak_hour",
+    "is_weekend"
+  ],
+  "mae": 2.8575440584387954,
+  "rmse": 3.5746041209863817,
+  "r2": 0.9076160496346846,
+  "model": "HistGradientBoostingRegressor"
+}
